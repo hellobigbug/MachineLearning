@@ -1,26 +1,35 @@
-#!/usr/bin/env python 
-# encoding: utf-8 
-"""
- @Author : hanxiaopeng
- @Time : 2020/8/31 
-"""
+# -*- coding: utf-8 -*-
 
-import pandas as pd
-from tensorflow.keras.layers import SimpleRNN
-from tensorflow.keras.optimizers import RMSprop
-from matplotlib import pyplot
+import matplotlib
+from keras.layers import SimpleRNN, Activation, Dense
 import numpy as np
-from sklearn.metrics import mean_squared_error
-from tensorflow.python.keras.layers import Activation, Dense, Dropout, Embedding
-from tensorflow.keras.models import Sequential
+import pandas as pd
+from keras.models import Sequential
+from keras.optimizers import Adam
 
+# 定义参数
 
-df = pd.read_csv('ATMP数据.csv')
+TIME_STEPS = 5  #  same as the height of the image
+INPUT_SIZE = 6  #  same as the width of the image
+BATCH_SIZE = 512  # 每个批次训练样本
+OUTPUT_SIZE = 6  # 每张图片输出分类矩阵
+CELL_SIZE = 30  # RNN中隐藏单元
+LR = 0.001  # 学习率
+BATCH_INDEX = 0 #分批截取数据
+
+# 载入数据及预处理
+
+df = pd.read_csv("ATMP数据.csv", header=0)
 df = df.set_index('数据日期')
+
+print(len(df))
+
+# 查看数据状态曲线
+# df[:].plot()
+# plt.show()
 
 np_data = np.array(df)
 
-lis = []
 x_list = []
 y_list = []
 for i in range(len(np_data)):
@@ -30,86 +39,91 @@ for i in range(len(np_data)):
     y = np_data[i + 6].tolist()
     x_list.append(x)
     y_list.append(y)
-    lis.append([x,y])
 
-# 要保存的矩阵样式
-# print(lis)
 
 x_array = np.array(x_list)
 y_array = np.array(y_list)
 
-X_train = x_array[:int(len(x_array)*0.75)]
-Y_train = y_array[:int(len(y_array)*0.75)]
-X_test = x_array[int(len(x_array)*0.75):]
-Y_test = y_array[int(len(y_array)*0.75):]
+X_train = x_array[:int(len(x_array) * 0.75)]
+y_train = y_array[:int(len(y_array) * 0.75)]
+X_test = x_array[int(len(x_array) * 0.75):]
+y_test = y_array[int(len(y_array) * 0.75):]
 
-# # normalize the dataset
-# scaler = MinMaxScaler(feature_range=(0, 1))
-# dataset = scaler.fit_transform(np.reshape(df['number'].values,(df.shape[0],1)))
-
-# according to step, create dataset
-# def create_dataset(dataset, step):
-#     dataX, dataY = [], []
-#     for i in range(len(dataset) - step - 1):
-# 	    a = dataset[i:(i + step), 0]
-# 	    dataX.append(a)
-# 	    dataY.append(dataset[i + step, 0])
-#     return np.array(dataX), np.array(dataY)
-#
-# step = 36
-# dataX, dataY = create_dataset(dataset, step)
-
-# split train and test dataset
-# 为什么不用train_test_split。时间序列数据中应该用前期的数据训练，后期数据预测。
-# X_train, X_test, Y_train, Y_test= train_test_split(dataX, dataY, test_size=0.2, random_state=0)
-
-# test_size = int(dataX.shape[0]*0.3)
-# train_size = dataX.shape[0]-test_size
-# X_train = dataX[0:train_size,]
-# X_test = dataX[train_size:dataX.shape[0],]
-# Y_train = dataY[0:train_size,]
-# Y_test = dataY[train_size:dataX.shape[0],]
-
-# X_train = np.reshape(X_train, (X_train.shape[0], 1, X_train.shape[1]))
-# X_test = np.reshape(X_test, (X_test.shape[0], 1, X_test.shape[1]))
-# Y_train=np.reshape(Y_train, (Y_train.shape[0], 1))
-# Y_test= np.reshape(Y_test, (Y_test.shape[0], 1))
-
-
-# 3、model train
-# model = Sequential()
-# model.add(SimpleRNN(30))
-# model.add(Dropout(0.5))  # dropout层防止过拟合
-# model.add(Dense(6))      # 全连接层
-# model.add(Activation('sigmoid'))  #激活层
-# model.compile(optimizer=RMSprop(), loss='mse')
-# model.fit(X_train, Y_train, batch_size=512, verbose=10)
-# model.save('passager.h5')
-# model = load_model('passager.h5')
 model = Sequential()
-model.add(Embedding(10000,32,input_length=30))
-model.add(SimpleRNN(30))
-model.add(Dense(6,activation="sigmoid"))
-model.summary()
-model.compile(optimizer=RMSprop(), loss='mse')
-# model.fit(X_train, Y_train, batch_size=512, verbose=10)
 
-history = model.fit(X_train, Y_train, batch_size=512, verbose=10, validation_data=(X_test, Y_test))
-# 4、model predict
-Y_predict = model.predict(X_test)
+# RNN cell
+model.add(SimpleRNN(
+    batch_input_shape=(None, TIME_STEPS, INPUT_SIZE),
+    output_dim=CELL_SIZE,
+    unroll=True,
+))
 
-# Y_predict = scaler.inverse_transform(Y_predict)
-np.reshape(Y_test, (Y_test.shape[0], 1))
-# Y_test = scaler.inverse_transform(Y_test)
+# output layer
+model.add(Dense(OUTPUT_SIZE))  # 全连接层
+model.add(Activation('sigmoid'))  # 激励函数
 
-Y_predict = np.reshape(Y_predict,(Y_predict.shape[0],))
-Y_test = np.reshape(Y_test,(Y_test.shape[0],))
+# 优化器optimizer
+adam = Adam(LR)
 
-# 5、model evaluation
-print("model mean squared error is " + str(mean_squared_error(Y_test, Y_predict)))
+# 激活神经网络
+model.compile(optimizer=adam,
+              loss='MSE',
+              metrics=['accuracy'])
 
+# 训练和预测
+cost_list = []
+acc_list = []
+step_list = []
+for step in range(4001):
+    # 分批截取数据 BATCH_INDEX初始值为0 BATCH_SIZE为512 取5个步长和6个INPUT_SIZE
+    # data shape = (batch_num, steps, inputs/outputs)
+    X_batch = X_train[BATCH_INDEX: BATCH_INDEX + BATCH_SIZE, :, :]
+    Y_batch = y_train[BATCH_INDEX: BATCH_INDEX + BATCH_SIZE, :]
 
-# plot data
-pyplot.plot(Y_predict)
-pyplot.plot(Y_test)
-pyplot.show()
+    # 计算误差
+    cost = model.train_on_batch(X_batch, Y_batch)
+
+    # # 累加参数
+    # BATCH_INDEX += BATCH_SIZE
+    # # 如果BATCH_INDEX累加大于总体的个数 则重新赋值0开始分批计算
+    # BATCH_INDEX = 0 if BATCH_INDEX >= X_train.shape[0] else BATCH_INDEX
+
+    # 每隔200步输出
+    if step % 200 == 0:
+        # 评价算法
+        cost, accuracy = model.evaluate(
+            X_test, y_test,
+            batch_size=y_test.shape[0],
+            verbose=False)
+        # 写入列表
+        cost_list.append(cost)
+        acc_list.append(accuracy)
+        step_list.append(step)
+        print('test cost: ', cost, 'test accuracy: ', accuracy)
+
+# --------------------------------绘制相关曲线------------------------------
+import matplotlib.pyplot as plt
+
+# 绘制曲线图
+
+# 绘图参数设定
+matplotlib.rcParams['font.size'] = 20
+matplotlib.rcParams['figure.titlesize'] = 20
+matplotlib.rcParams['figure.figsize'] = [9, 7]
+matplotlib.rcParams['font.family'] = ['STKaiTi']
+matplotlib.rcParams['axes.unicode_minus'] = False
+
+plt.figure()
+x = [i * 80 for i in range(len(cost_list))]
+plt.plot(x, cost_list, color='C0', marker='s', label='测试')
+plt.ylabel('MSE')
+plt.xlabel('Step')
+plt.legend()
+# plt.savefig('train.svg')
+
+plt.figure()
+plt.plot(x, acc_list, color='C1', marker='s', label='测试')
+plt.ylabel('准确率')
+plt.xlabel('Step')
+plt.legend()
+plt.show()
