@@ -79,7 +79,6 @@ for step in range(4001):
     # data shape = (batch_num, steps, inputs/outputs)
     X_batch = X_train[BATCH_INDEX: BATCH_INDEX + BATCH_SIZE, :, :]
     Y_batch = y_train[BATCH_INDEX: BATCH_INDEX + BATCH_SIZE, :]
-
     # 计算误差
     cost = model.train_on_batch(X_batch, Y_batch)
 
