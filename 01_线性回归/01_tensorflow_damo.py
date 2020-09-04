@@ -5,11 +5,9 @@
  @Time : 2020/8/27 
 """
 import os
-import matplotlib
 import tensorflow as tf
 from matplotlib import pyplot as plt
-
-
+import matplotlib
 # 绘图参数设定
 matplotlib.rcParams['font.size'] = 20
 matplotlib.rcParams['figure.titlesize'] = 20
@@ -20,15 +18,13 @@ matplotlib.rcParams['axes.unicode_minus'] = False
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 print(tf.__version__)
 
-
-
 # 数据导入
 # (x, y), (x_test, y_test) = datasets.mnist.load_data()
 import numpy as np
 import pandas as pd
 
 # 读取数据
-df = pd.read_csv("ATMP数据.csv", header=0)
+df = pd.read_csv("../ATMP数据.csv", header=0)
 df = df.set_index('数据日期')
 
 # 数据量不足，用复制来增加
@@ -38,8 +34,8 @@ df = df.set_index('数据日期')
 print(len(df))
 
 # 查看数据状态曲线
-df[:].plot()
-plt.show()
+# df[:].plot()
+# plt.show()
 
 np_data = np.array(df)
 
@@ -53,7 +49,7 @@ for i in range(len(np_data)):
     y = np_data[i + 6].tolist()
     x_list.append(x)
     y_list.append(y)
-    lis.append([x,y])
+    lis.append([x, y])
 
 # 要保存的矩阵样式
 # print(lis)
@@ -74,10 +70,10 @@ y_array = np.array(y_list)
 # print(y_array)
 
 
-x = x_array[:int(len(x_array)*0.75)]
-y = y_array[:int(len(y_array)*0.75)]
-x_test = x_array[int(len(x_array)*0.75):]
-y_test = y_array[int(len(y_array)*0.75):]
+x = x_array[:int(len(x_array) * 0.75)]
+y = y_array[:int(len(y_array) * 0.75)]
+x_test = x_array[int(len(x_array) * 0.75):]
+y_test = y_array[int(len(y_array) * 0.75):]
 
 # tenroflow提供的数据集
 # (x, y), (x_test, y_test) = datasets.mnist.load_data()
@@ -90,7 +86,7 @@ def preprocess(x, y):  # 自定义的预处理函数
     # 调用此函数时会自动传入x,y 对象，shape 为[b, 28, 28], [b]
     # 标准化到0~1
     x = tf.cast(x, dtype=tf.float32) / 255.
-    x = tf.reshape(x, [-1, 5*6])  # 打平
+    x = tf.reshape(x, [-1, 5 * 6])  # 打平
     y = tf.cast(y, dtype=tf.float32)
     y = tf.reshape(y, [-1, 6])
     # y = tf.cast(y, dtype=tf.int32)  # 转成整形张量
@@ -123,7 +119,7 @@ def main():
     accs, losses = [], []
 
     # 784 => 512
-    w1, b1 = tf.Variable(tf.random.normal([30, 28], stddev=0.1)), tf.Variable(tf.zeros([28]))
+    w1, b1 = tf.Variable(tf.random.normal([30, 28], stddev=0.1)), tf.Variable(tf.zeros([28]))  # stddev: 正态分布的标准差，默认为1.0
     # 512 => 256
     w2, b2 = tf.Variable(tf.random.normal([28, 12], stddev=0.1)), tf.Variable(tf.zeros([12]))
     # 256 => 10
@@ -146,17 +142,19 @@ def main():
             out = h2 @ w3 + b3
             # out = tf.nn.relu(out)
 
-            # compute loss
-            # [b, 10] - [b, 10]
+            # 求误差
             loss = tf.square(y - out)
-            # [b, 10] => scalar
+            # 求误差的请平均值
             loss = tf.reduce_mean(loss)
 
+        # 借助于 tensorflow 自动求导
         grads = tape.gradient(loss, [w1, b1, w2, b2, w3, b3])
+
+        # 根据梯度更新参数
         for p, g in zip([w1, b1, w2, b2, w3, b3], grads):
             p.assign_sub(lr * g)
 
-        # print
+        # 每迭代80次输出一次loss
         if step % 80 == 0:
             print(step, 'loss:', float(loss))
             losses.append(float(loss))
@@ -191,7 +189,7 @@ def main():
     plt.figure()
     x = [i * 80 for i in range(len(losses))]
     plt.plot(x, losses, color='C0', marker='s', label='训练')
-    plt.ylabel('MSE')
+    plt.ylabel('Loss')
     plt.xlabel('Step')
     plt.legend()
     # plt.savefig('train.svg')
