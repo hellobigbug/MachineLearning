@@ -5,10 +5,13 @@
  @Time : 2020/8/27 
 """
 import os
+
+import matplotlib
 import tensorflow as tf
 from matplotlib import pyplot as plt
-import matplotlib
 # 绘图参数设定
+from sklearn import preprocessing
+
 matplotlib.rcParams['font.size'] = 20
 matplotlib.rcParams['figure.titlesize'] = 20
 matplotlib.rcParams['figure.figsize'] = [9, 7]
@@ -37,7 +40,9 @@ print(len(df))
 # df[:].plot()
 # plt.show()
 
+min_max_scaler = preprocessing.MinMaxScaler()
 np_data = np.array(df)
+np_data = min_max_scaler.fit_transform(np_data)
 
 lis = []
 x_list = []
@@ -55,7 +60,11 @@ for i in range(len(np_data)):
 # print(lis)
 
 x_array = np.array(x_list)
+# x_array = min_max_scaler.fit_transform(x_array)
+# x_array = normalize(x_array, axis=0, norm='max')
 y_array = np.array(y_list)
+# y_array = min_max_scaler.fit_transform(y_array)
+# y_array = normalize(y_array, axis=0, norm='max')
 
 # # 保存
 # np.savez('data.npz', x_array=x_array, y_array=y_array)
@@ -85,17 +94,15 @@ print('x:', x.shape, 'y:', y.shape, 'x test:', x_test.shape, 'y test:', y_test)
 def preprocess(x, y):  # 自定义的预处理函数
     # 调用此函数时会自动传入x,y 对象，shape 为[b, 28, 28], [b]
     # 标准化到0~1
-    x = tf.cast(x, dtype=tf.float32) / 255.
+    x = tf.cast(x, dtype=tf.float32)
     x = tf.reshape(x, [-1, 5 * 6])  # 打平
     y = tf.cast(y, dtype=tf.float32)
     y = tf.reshape(y, [-1, 6])
-    # y = tf.cast(y, dtype=tf.int32)  # 转成整形张量
-    # y = tf.one_hot(y, depth=10)  # one-hot 编码
-    # 返回的x,y 将替换传入的x,y 参数，从而实现数据的预处理功能
+    # y = tf.one_hot(y, depth=6)
     return x, y
 
 
-batchsz = 512
+batchsz = 64
 train_db = tf.data.Dataset.from_tensor_slices((x, y))
 train_db = train_db.shuffle(1000)  # 打乱顺序，缓冲池1000
 train_db = train_db.batch(batchsz)  # 批训练，批规模
@@ -109,26 +116,20 @@ x, y = next(iter(train_db))
 print('train sample:', x.shape, y.shape)
 
 
-# print(x[0], y[0])
-
-
-#
 def main():
     # learning rate
-    lr = 1e-2
+    lr = 1e-1
     accs, losses = [], []
 
     # 784 => 512
-    w1, b1 = tf.Variable(tf.random.normal([30, 28], stddev=0.1)), tf.Variable(tf.zeros([28]))  # stddev: 正态分布的标准差，默认为1.0
+    w1, b1 = tf.Variable(tf.random.normal([30, 28], stddev=0.1, seed=1)), tf.Variable(
+        tf.zeros([28]))  # stddev: 正态分布的标准差，默认为1.0
     # 512 => 256
-    w2, b2 = tf.Variable(tf.random.normal([28, 12], stddev=0.1)), tf.Variable(tf.zeros([12]))
+    w2, b2 = tf.Variable(tf.random.normal([28, 12], stddev=0.1, seed=1)), tf.Variable(tf.zeros([12]))
     # 256 => 10
-    w3, b3 = tf.Variable(tf.random.normal([12, 6], stddev=0.1)), tf.Variable(tf.zeros([6]))
+    w3, b3 = tf.Variable(tf.random.normal([12, 6], stddev=0.1, seed=1)), tf.Variable(tf.zeros([6]))
 
     for step, (x, y) in enumerate(train_db):
-
-        # [b, 28, 28] => [b, 784]
-        x = tf.reshape(x, (-1, 30))
 
         with tf.GradientTape() as tape:
 
@@ -163,7 +164,7 @@ def main():
             # evaluate/test
             total, total_correct = 0., 0
 
-            for x, y in test_db:
+            for step, (x, y) in enumerate(test_db):
                 # layer1.
                 h1 = x @ w1 + b1
                 h1 = tf.nn.relu(h1)
@@ -172,14 +173,19 @@ def main():
                 h2 = tf.nn.relu(h2)
                 # output
                 out = h2 @ w3 + b3
-                # [b, 10] => [b]
-                pred = tf.argmax(out, axis=1)
-                # convert one_hot y to number y
+
+                # 实际按行取最大的数的列索引信息
                 y = tf.argmax(y, axis=1)
-                # bool type
-                correct = tf.equal(pred, y)
-                # bool tensor => int tensor => numpy
-                total_correct += tf.reduce_sum(tf.cast(correct, dtype=tf.int32)).numpy()
+                y = tf.cast(y, dtype=tf.float32)
+                prob = tf.nn.softmax(out, axis=1)
+                # 按行取概率最大的数的列索引信息
+                preb = tf.argmax(prob, axis=1)
+                preb = tf.cast(preb, dtype=tf.float32)
+                # 预测值与真实值比较
+                # print(y.dtype, preb.dtype)
+                correct = tf.cast(tf.equal(y, preb), dtype=tf.float32)
+                correct = tf.reduce_sum(correct)
+                total_correct += int(correct)
                 total += x.shape[0]
 
             print(step, 'Evaluate Acc:', total_correct / total)

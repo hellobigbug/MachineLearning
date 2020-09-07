@@ -10,10 +10,13 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from matplotlib import pyplot as plt
-from tensorflow.python.keras.layers import SimpleRNN, Dense
-from tensorflow.python.keras.models import Sequential
+from sklearn import preprocessing
+from sklearn.preprocessing import normalize
+from tensorflow.python.keras import Sequential
+from tensorflow.python.keras.layers import Dense, Flatten
+from tensorflow.python.keras.optimizer_v2.rmsprop import RMSprop
 
-df = pd.read_csv("ATMP数据.csv", header=0)
+df = pd.read_csv("../ATMP数据.csv", header=0)
 df = df.set_index('数据日期')
 
 print(len(df))
@@ -22,7 +25,10 @@ print(len(df))
 # df[:].plot()
 # plt.show()
 
+# np_data = np.array(df)
+min_max_scaler = preprocessing.MinMaxScaler()
 np_data = np.array(df)
+np_data = min_max_scaler.fit_transform(np_data)
 
 x_list = []
 y_list = []
@@ -35,7 +41,9 @@ for i in range(len(np_data)):
     y_list.append(y)
 
 x_array = np.array(x_list)
+# x_array = normalize(x_array, axis=0, norm='max')
 y_array = np.array(y_list)
+# y_array = normalize(y_array, axis=0, norm='max')
 
 x_train = x_array[:int(len(x_array) * 0.75)]
 y_train = y_array[:int(len(y_array) * 0.75)]
@@ -52,9 +60,9 @@ y_test = y_array[int(len(y_array) * 0.75):]
 # 数据预处理
 def preprocess(x, y):  # 自定义的预处理函数
     x = tf.cast(x, dtype=tf.float32)
-    # x = tf.reshape(x, [-1, 5 * 6])  # 打平
+    x = tf.reshape(x, [-1, 5 * 6])  # 打平
     y = tf.cast(y, dtype=tf.float32)
-    # y = tf.reshape(y, [-1, 6])
+    y = tf.reshape(y, [-1, 6])
     return x, y
 
 
@@ -92,29 +100,23 @@ class GRUModel(tf.keras.Model):
         return output
 
 
-losses = []
-accs = []
-model_list = []
-lr = 0.001
+# losses = []
+# accs = []
+# model_list = []
+lr = 1e-1
 optimizer = tf.keras.optimizers.SGD(lr)
 
-
-model = GRUModel(512,5,6)
-# 装配
-model.compile(optimizer=tf.optimizers.RMSprop(0.001),
-              loss='MSE',
+model = GRUModel(512, 5, 6)
+# 装配 tf.optimizers.RMSprop(0.001)
+model.compile(optimizer=optimizer,
+              loss='mse',
               metrics=['accuracy'])
 
-
-
-history = model.fit(train_db, epochs=50, validation_data=test_db)
+history = model.fit(train_db, epochs=30, validation_data=test_db)
 data = history.history
-
 
 losses = data['loss']
 accs = data['val_accuracy']
-
-
 
 # 绘图参数设定
 matplotlib.rcParams['font.size'] = 20
@@ -122,7 +124,6 @@ matplotlib.rcParams['figure.titlesize'] = 20
 matplotlib.rcParams['figure.figsize'] = [9, 7]
 matplotlib.rcParams['font.family'] = ['STKaiTi']
 matplotlib.rcParams['axes.unicode_minus'] = False
-
 
 plt.figure()
 x = [i * 80 for i in range(len(losses))]
