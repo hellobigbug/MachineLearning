@@ -11,7 +11,7 @@ import pandas as pd
 import tensorflow as tf
 from matplotlib import pyplot as plt
 from sklearn import preprocessing
-from sklearn.preprocessing import normalize
+from sklearn.preprocessing import normalize, StandardScaler
 from tensorflow.python.keras import Sequential
 from tensorflow.python.keras.layers import Dense, Flatten
 from tensorflow.python.keras.optimizer_v2.rmsprop import RMSprop
@@ -21,14 +21,11 @@ df = df.set_index('数据日期')
 
 print(len(df))
 
-# 查看数据状态曲线
-# df[:].plot()
-# plt.show()
 
-# np_data = np.array(df)
-min_max_scaler = preprocessing.MinMaxScaler()
 np_data = np.array(df)
+min_max_scaler = preprocessing.MinMaxScaler()
 np_data = min_max_scaler.fit_transform(np_data)
+np_data = StandardScaler().fit_transform(np_data)
 
 x_list = []
 y_list = []
@@ -47,14 +44,14 @@ y_array = np.array(y_list)
 
 x_train = x_array[:int(len(x_array) * 0.75)]
 y_train = y_array[:int(len(y_array) * 0.75)]
-x_test = x_array[int(len(x_array) * 0.75):]
-y_test = y_array[int(len(y_array) * 0.75):]
+x_valid = x_array[int(len(x_array) * 0.75):]
+y_valid = y_array[int(len(y_array) * 0.75):]
 
 
 # tenroflow提供的数据集
-# (x, y), (x_test, y_test) = datasets.mnist.load_data()
+# (x, y), (x_valid, y_valid) = datasets.mnist.load_data()
 
-# print('x:', x.shape, 'y:', y.shape, 'x test:', x_test.shape, 'y test:', y_test)
+# print('x:', x.shape, 'y:', y.shape, 'x valid:', x_valid.shape, 'y valid:', y_valid)
 
 
 # 数据预处理
@@ -74,8 +71,8 @@ train_db = train_db.map(preprocess)
 train_db = train_db.repeat(20)
 
 #
-test_db = tf.data.Dataset.from_tensor_slices((x_test, y_test))
-test_db = test_db.shuffle(1000).batch(batchsz, drop_remainder=True).map(preprocess)
+valid_db = tf.data.Dataset.from_tensor_slices((x_valid, y_valid))
+valid_db = valid_db.shuffle(1000).batch(batchsz, drop_remainder=True).map(preprocess)
 x, y = next(iter(train_db))
 print('train sample:', x.shape, y.shape)
 
@@ -99,24 +96,20 @@ class GRUModel(tf.keras.Model):
         output = self.layer_dense(x)
         return output
 
-
-# losses = []
-# accs = []
-# model_list = []
 lr = 1e-1
 optimizer = tf.keras.optimizers.SGD(lr)
-
 model = GRUModel(512, 5, 6)
-# 装配 tf.optimizers.RMSprop(0.001)
+#  tf.optimizers.RMSprop(0.001)
 model.compile(optimizer=optimizer,
               loss='mse',
-              metrics=['accuracy'])
+              metrics=['MAE'])
 
-history = model.fit(train_db, epochs=30, validation_data=test_db)
+history = model.fit(train_db, epochs=30, validation_data=valid_db)
 data = history.history
 
 losses = data['loss']
-accs = data['val_accuracy']
+MAPE = data['MAE']
+
 
 # 绘图参数设定
 matplotlib.rcParams['font.size'] = 20
@@ -134,9 +127,9 @@ plt.legend()
 # plt.savefig('train.svg')
 
 plt.figure()
-plt.plot(x, accs, color='C1', marker='s', label='测试')
-plt.ylabel('准确率')
+plt.plot(x, MAPE, color='C1', marker='s', label='测试')
+plt.ylabel('误差率')
 plt.xlabel('Step')
 plt.legend()
 plt.show()
-# plt.savefig('test.svg')
+# plt.savefig('valid.svg')

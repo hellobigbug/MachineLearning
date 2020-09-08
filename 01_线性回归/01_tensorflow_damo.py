@@ -9,8 +9,9 @@ import os
 import matplotlib
 import tensorflow as tf
 from matplotlib import pyplot as plt
-# 绘图参数设定
 from sklearn import preprocessing
+from sklearn.preprocessing import StandardScaler
+from tensorflow.python.keras.metrics import MAPE, MAE
 
 matplotlib.rcParams['font.size'] = 20
 matplotlib.rcParams['figure.titlesize'] = 20
@@ -22,7 +23,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 print(tf.__version__)
 
 # 数据导入
-# (x, y), (x_test, y_test) = datasets.mnist.load_data()
+# (x, y), (x_valid, y_valid) = datasets.mnist.load_data()
 import numpy as np
 import pandas as pd
 
@@ -40,9 +41,11 @@ print(len(df))
 # df[:].plot()
 # plt.show()
 
-min_max_scaler = preprocessing.MinMaxScaler()
+
 np_data = np.array(df)
+min_max_scaler = preprocessing.MinMaxScaler()
 np_data = min_max_scaler.fit_transform(np_data)
+np_data = StandardScaler().fit_transform(np_data)
 
 lis = []
 x_list = []
@@ -60,11 +63,9 @@ for i in range(len(np_data)):
 # print(lis)
 
 x_array = np.array(x_list)
-# x_array = min_max_scaler.fit_transform(x_array)
-# x_array = normalize(x_array, axis=0, norm='max')
 y_array = np.array(y_list)
-# y_array = min_max_scaler.fit_transform(y_array)
-# y_array = normalize(y_array, axis=0, norm='max')
+
+
 
 # # 保存
 # np.savez('data.npz', x_array=x_array, y_array=y_array)
@@ -81,13 +82,13 @@ y_array = np.array(y_list)
 
 x = x_array[:int(len(x_array) * 0.75)]
 y = y_array[:int(len(y_array) * 0.75)]
-x_test = x_array[int(len(x_array) * 0.75):]
-y_test = y_array[int(len(y_array) * 0.75):]
+x_valid = x_array[int(len(x_array) * 0.75):]
+y_valid = y_array[int(len(y_array) * 0.75):]
 
 # tenroflow提供的数据集
-# (x, y), (x_test, y_test) = datasets.mnist.load_data()
+# (x, y), (x_valid, y_valid) = datasets.mnist.load_data()
 
-print('x:', x.shape, 'y:', y.shape, 'x test:', x_test.shape, 'y test:', y_test)
+print('x:', x.shape, 'y:', y.shape, 'x valid:', x_valid.shape, 'y valid:', y_valid)
 
 
 # 数据预处理
@@ -110,15 +111,18 @@ train_db = train_db.map(preprocess)
 train_db = train_db.repeat(20)
 
 #
-test_db = tf.data.Dataset.from_tensor_slices((x_test, y_test))
-test_db = test_db.shuffle(1000).batch(batchsz).map(preprocess)
+valid_db = tf.data.Dataset.from_tensor_slices((x_valid, y_valid))
+valid_db = valid_db.shuffle(1000).batch(batchsz).map(preprocess)
 x, y = next(iter(train_db))
 print('train sample:', x.shape, y.shape)
 
+# def MAPE(true, pred):
+#     diff = np.abs(np.array(true) - np.array(pred))
+#     return np.mean(diff / true)
 
 def main():
     # learning rate
-    lr = 1e-1
+    lr = 1e-2
     accs, losses = [], []
 
     # 784 => 512
@@ -161,10 +165,10 @@ def main():
             losses.append(float(loss))
 
         if step % 80 == 0:
-            # evaluate/test
+            # evaluate/valid
             total, total_correct = 0., 0
 
-            for step, (x, y) in enumerate(test_db):
+            for step, (x, y) in enumerate(valid_db):
                 # layer1.
                 h1 = x @ w1 + b1
                 h1 = tf.nn.relu(h1)
@@ -174,16 +178,16 @@ def main():
                 # output
                 out = h2 @ w3 + b3
 
-                # 实际按行取最大的数的列索引信息
-                y = tf.argmax(y, axis=1)
-                y = tf.cast(y, dtype=tf.float32)
-                prob = tf.nn.softmax(out, axis=1)
-                # 按行取概率最大的数的列索引信息
-                preb = tf.argmax(prob, axis=1)
-                preb = tf.cast(preb, dtype=tf.float32)
+                # # 实际按行取最大的数的列索引信息
+                # y = tf.argmax(y, axis=1)
+                # y = tf.cast(y, dtype=tf.float32)
+                # prob = tf.nn.softmax(out, axis=1)
+                # # 按行取概率最大的数的列索引信息
+                # preb = tf.argmax(prob, axis=1)
+                # preb = tf.cast(preb, dtype=tf.float32)
                 # 预测值与真实值比较
                 # print(y.dtype, preb.dtype)
-                correct = tf.cast(tf.equal(y, preb), dtype=tf.float32)
+                correct = MAE(y, out)
                 correct = tf.reduce_sum(correct)
                 total_correct += int(correct)
                 total += x.shape[0]
@@ -202,11 +206,11 @@ def main():
 
     plt.figure()
     plt.plot(x, accs, color='C1', marker='s', label='测试')
-    plt.ylabel('准确率')
+    plt.ylabel('误差率')
     plt.xlabel('Step')
     plt.legend()
     plt.show()
-    # plt.savefig('test.svg')
+    # plt.savefig('valid.svg')
 
 
 if __name__ == '__main__':
