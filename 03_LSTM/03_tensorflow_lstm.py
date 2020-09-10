@@ -20,7 +20,7 @@ df = pd.read_csv("../ATMP数据.csv", header=0)
 df = df.set_index('数据日期')
 np_data = np.array(df)
 print('data size', len(df))
-
+ 
 # 标准化和归一化
 scaler = MinMaxScaler()
 np_data = scaler.fit_transform(np_data)
