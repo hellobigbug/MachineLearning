@@ -11,7 +11,7 @@ import tensorflow as tf
 from matplotlib import pyplot as plt
 from sklearn import preprocessing
 from sklearn.preprocessing import StandardScaler
-from tensorflow.python.keras.metrics import MAPE, MAE
+from tensorflow.python.keras.metrics import MAE
 
 matplotlib.rcParams['font.size'] = 20
 matplotlib.rcParams['figure.titlesize'] = 20
@@ -65,8 +65,6 @@ for i in range(len(np_data)):
 x_array = np.array(x_list)
 y_array = np.array(y_list)
 
-
-
 # # 保存
 # np.savez('data.npz', x_array=x_array, y_array=y_array)
 # # 读取
@@ -115,6 +113,7 @@ valid_db = tf.data.Dataset.from_tensor_slices((x_valid, y_valid))
 valid_db = valid_db.shuffle(1000).batch(batchsz).map(preprocess)
 x, y = next(iter(train_db))
 print('train sample:', x.shape, y.shape)
+
 
 # def MAPE(true, pred):
 #     diff = np.abs(np.array(true) - np.array(pred))
@@ -178,15 +177,6 @@ def main():
                 # output
                 out = h2 @ w3 + b3
 
-                # # 实际按行取最大的数的列索引信息
-                # y = tf.argmax(y, axis=1)
-                # y = tf.cast(y, dtype=tf.float32)
-                # prob = tf.nn.softmax(out, axis=1)
-                # # 按行取概率最大的数的列索引信息
-                # preb = tf.argmax(prob, axis=1)
-                # preb = tf.cast(preb, dtype=tf.float32)
-                # 预测值与真实值比较
-                # print(y.dtype, preb.dtype)
                 correct = MAE(y, out)
                 correct = tf.reduce_sum(correct)
                 total_correct += int(correct)

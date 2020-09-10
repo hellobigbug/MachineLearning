@@ -11,16 +11,12 @@ import pandas as pd
 import tensorflow as tf
 from matplotlib import pyplot as plt
 from sklearn import preprocessing
-from sklearn.preprocessing import normalize, StandardScaler
-from tensorflow.python.keras import Sequential
-from tensorflow.python.keras.layers import Dense, Flatten
-from tensorflow.python.keras.optimizer_v2.rmsprop import RMSprop
+from sklearn.preprocessing import StandardScaler
 
 df = pd.read_csv("../ATMP数据.csv", header=0)
 df = df.set_index('数据日期')
 
 print(len(df))
-
 
 np_data = np.array(df)
 min_max_scaler = preprocessing.MinMaxScaler()
@@ -46,12 +42,6 @@ x_train = x_array[:int(len(x_array) * 0.75)]
 y_train = y_array[:int(len(y_array) * 0.75)]
 x_valid = x_array[int(len(x_array) * 0.75):]
 y_valid = y_array[int(len(y_array) * 0.75):]
-
-
-# tenroflow提供的数据集
-# (x, y), (x_valid, y_valid) = datasets.mnist.load_data()
-
-# print('x:', x.shape, 'y:', y.shape, 'x valid:', x_valid.shape, 'y valid:', y_valid)
 
 
 # 数据预处理
@@ -96,6 +86,7 @@ class GRUModel(tf.keras.Model):
         output = self.layer_dense(x)
         return output
 
+
 lr = 1e-1
 optimizer = tf.keras.optimizers.SGD(lr)
 model = GRUModel(512, 5, 6)
@@ -108,8 +99,7 @@ history = model.fit(train_db, epochs=30, validation_data=valid_db)
 data = history.history
 
 losses = data['loss']
-MAPE = data['MAE']
-
+MAPE = data['val_MAE']
 
 # 绘图参数设定
 matplotlib.rcParams['font.size'] = 20
