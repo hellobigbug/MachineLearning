@@ -2,7 +2,6 @@
 # encoding: utf-8
 import time
 
-import keras.backend as K
 import matplotlib
 import numpy as np
 import pandas as pd
@@ -55,8 +54,8 @@ optimizer = tf.keras.optimizers.SGD(lr)
 # 搭建lstm模型
 model = Sequential()
 model.add(LSTM(128, input_shape=(x_train.shape[1], x_train.shape[2])))  # x_train.shape[1], x_train.shape[2]也就是特征维度的5，6
-model.add(Dense(6))  # dense是全连接层，只需要指定输出层维度为。这里是最后一层，所以直接输出标签维度6
-model.compile(optimizer=optimizer, loss='mse', metrics=['mae'])  # 使用mse调整loss，使用mape验证准确率
+model.add(Dense(6))  # dense是全连接层，只需要指定输出层维度。这里是最后一层，所以直接输出标签维度6
+model.compile(optimizer=optimizer, loss='mse', metrics=['mae'])  # 使用mse调整loss，使用mae验证准确率
 # 拟合模型，epochs为训练次数， batch_size为单次训练训练数据大小， verbose=2代表控制台输出全部训练记录
 history = model.fit(x_train, y_train, validation_data=(x_valid, y_valid), epochs=30, batch_size=128, verbose=2)
 
@@ -89,7 +88,6 @@ plt.xlabel('Step')
 plt.legend()
 plt.show()
 
-
 """
 使用r2_score作为回归模型评价标准
 R2就是决定系数（拟合优度），反映了因变量y的波动，有多少百分比能被自变量x的波动所描述
@@ -109,7 +107,7 @@ def r_square(y_true, y_pred):
     return SSR / SST
 """
 yhat_test = model.predict(x_test)
-r2_test = r2_score(y_test, yhat_test)   #这里调用内置函数计算
+r2_test = r2_score(y_test, yhat_test)  # 这里调用内置函数计算
 
-print('r2_score : ', r2_test)           # 0.726976753119898
-print('fit use time: ', usetime, 's')   # 90.27416348457336 s
+print('r2_score : ', r2_test)  # 0.726976753119898
+print('fit use time: ', usetime, 's')  # 90.27416348457336 s
