@@ -60,15 +60,15 @@ model = Sequential()
 model.add(Conv1D(filters=128, kernel_size=2, activation='relu', input_shape=(5, 6)))  # 卷积层1
 model.add(Conv1D(filters=64, kernel_size=2, activation='relu'))  # 卷积层2
 model.add(MaxPooling1D(pool_size=2))  # 池化层
-model.add(Dropout(0.2))
+# model.add(Dropout(0.2))
 model.add(Flatten())  # 降维
 model.add(Dense(50, activation='relu'))  # 全连接层
-model.add(Dropout(0.2))
+# model.add(Dropout(0.2))
 model.add(Dense(6))  # 全连接输出
 model.compile(optimizer=optimizer, loss='mse', metrics=['mae'])  # 使用mse调整loss，使用mae验证准确率
 
 # 拟合模型，epochs为训练次数， batch_size为单次训练训练数据大小， verbose=2代表控制台输出全部训练记录
-history = model.fit(x_train, y_train, validation_data=(x_valid, y_valid), epochs=100, batch_size=512, verbose=2)
+history = model.fit(x_train, y_train, validation_data=(x_valid, y_valid), epochs=100, batch_size=128, verbose=2)
 
 # 标记fit时间
 usetime = time.time() - starttime
