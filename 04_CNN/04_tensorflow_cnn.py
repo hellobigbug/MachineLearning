@@ -57,12 +57,12 @@ optimizer = tf.keras.optimizers.SGD(lr)
 
 # 搭建lstm模型
 model = Sequential()
-model.add(Conv1D(filters=128, kernel_size=2, activation='relu', input_shape=(5, 6)))  #卷积层1
-model.add(Conv1D(filters=64, kernel_size=2, activation='relu')) #卷积层2
+model.add(Conv1D(filters=128, kernel_size=2, activation='relu', input_shape=(5, 6)))  # 卷积层1
+model.add(Conv1D(filters=64, kernel_size=2, activation='relu'))  # 卷积层2
 model.add(MaxPooling1D(pool_size=2))  # 池化层
 model.add(Dropout(0.2))
 model.add(Flatten())  # 降维
-model.add(Dense(50, activation='relu')) #全连接层
+model.add(Dense(50, activation='relu'))  # 全连接层
 model.add(Dropout(0.2))
 model.add(Dense(6))  # 全连接输出
 model.compile(optimizer=optimizer, loss='mse', metrics=['mae'])  # 使用mse调整loss，使用mae验证准确率
@@ -107,8 +107,6 @@ plt.legend()
 yhat_test = model.predict(x_test)
 r2_test = r2_score(y_test, yhat_test)  # 这里调用内置函数计算
 
-
-
 figure = plt.figure(figsize=(15, 6))
 x = [i for i in range(len(yhat_test[:100]))]
 
@@ -122,7 +120,7 @@ ax0 = figure.add_subplot(2, 3, 6)
 ax0.plot(x, yhat_test[:100, 0])
 ax0.plot(x, y_test[:100, 0])
 
-ax1.plot(x, yhat_test[:100,1])
+ax1.plot(x, yhat_test[:100, 1])
 ax1.plot(x, y_test[:100, 1])
 
 ax2.plot(x, yhat_test[:100, 2])
