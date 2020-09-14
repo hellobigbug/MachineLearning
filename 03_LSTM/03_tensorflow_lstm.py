@@ -47,8 +47,8 @@ y_train = y_array[:int(len(y_array) * 0.6)]
 y_valid = y_array[int(len(y_array) * 0.6):int(len(y_array) * 0.8)]
 y_test = y_array[int(len(y_array) * 0.8):]
 
-# 优化器选择随机梯度下降（SGD）
-lr = 1e-2  # 初始值，可调整
+# 优化器选择随机梯度下降（SGD）, lr是初始值，可调整
+lr = 1e-2
 optimizer = tf.keras.optimizers.SGD(lr)
 
 # 搭建lstm模型
@@ -56,6 +56,7 @@ model = Sequential()
 model.add(LSTM(128, input_shape=(x_train.shape[1], x_train.shape[2])))  # x_train.shape[1], x_train.shape[2]也就是特征维度的5，6
 model.add(Dense(6))  # dense是全连接层，只需要指定输出层维度。这里是最后一层，所以直接输出标签维度6
 model.compile(optimizer=optimizer, loss='mse', metrics=['mae'])  # 使用mse调整loss，使用mae验证准确率
+
 # 拟合模型，epochs为训练次数， batch_size为单次训练训练数据大小， verbose=2代表控制台输出全部训练记录
 history = model.fit(x_train, y_train, validation_data=(x_valid, y_valid), epochs=30, batch_size=128, verbose=2)
 
@@ -77,13 +78,18 @@ matplotlib.rcParams['axes.unicode_minus'] = False
 plt.figure()
 x = [i * 80 for i in range(len(losses))]
 plt.plot(x, losses, color='C0', marker='s', label='训练')
-plt.ylabel('loss')
+plt.ylabel('LSTM loss')
 plt.xlabel('Step')
 plt.legend()
 
 plt.figure()
+x0 = mae.index(min(mae)) * 80
+y0 = min(mae)
+# 标记折线最低点，xy是标记点位置，txtest是文本标注位置，文本偏移x-300，y+0.1以避免遮盖折现
+plt.annotate('最低点: %s' % round(y0, 3), xy=(x0, y0), xytext=(x0 - 300, y0 + 0.1),
+             arrowprops=dict(facecolor='black', shrink=0.00001))
 plt.plot(x, mae, color='C1', marker='s', label='测试')
-plt.ylabel('MAE')
+plt.ylabel('LSTM valid mae')
 plt.xlabel('Step')
 plt.legend()
 plt.show()
@@ -109,5 +115,16 @@ def r_square(y_true, y_pred):
 yhat_test = model.predict(x_test)
 r2_test = r2_score(y_test, yhat_test)  # 这里调用内置函数计算
 
-print('r2_score : ', r2_test)  # 0.726976753119898
-print('fit use time: ', usetime, 's')  # 90.27416348457336 s
+# 保留三位小数
+print('r2_score : ', round(r2_test, 3))
+print('use time: ', round(time.time() - starttime, 3), 's')
+
+"""
+epochs=100 ：
+    r2_score :  0.731
+    use time:  331.979 s
+    
+epochs=30 ：
+    r2_score :  0.728
+    use time:  88.959 s
+"""

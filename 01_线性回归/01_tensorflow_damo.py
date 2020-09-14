@@ -5,11 +5,13 @@
  @Time : 2020/8/27 
 """
 import os
+import time
 
 import matplotlib
 import tensorflow as tf
 from matplotlib import pyplot as plt
 from sklearn import preprocessing
+from sklearn.metrics import r2_score
 from sklearn.preprocessing import StandardScaler
 from tensorflow.python.keras.metrics import MAE
 
@@ -26,6 +28,8 @@ print(tf.__version__)
 # (x, y), (x_valid, y_valid) = datasets.mnist.load_data()
 import numpy as np
 import pandas as pd
+
+starttime = time.time()
 
 # 读取数据
 df = pd.read_csv("../ATMP数据.csv", header=0)
@@ -77,16 +81,19 @@ y_array = np.array(y_list)
 # print(x_array)
 # print(y_array)
 
+# 划分训练集，验证集，测试集，比例为8：2：2
+x_train = x_array[:int(len(x_array) * 0.6)]
+x_valid = x_array[int(len(x_array) * 0.6):int(len(x_array) * 0.8)]
+x_test = x_array[int(len(x_array) * 0.8):]
+y_train = y_array[:int(len(y_array) * 0.6)]
+y_valid = y_array[int(len(y_array) * 0.6):int(len(y_array) * 0.8)]
+y_test = y_array[int(len(y_array) * 0.8):]
 
-x = x_array[:int(len(x_array) * 0.75)]
-y = y_array[:int(len(y_array) * 0.75)]
-x_valid = x_array[int(len(x_array) * 0.75):]
-y_valid = y_array[int(len(y_array) * 0.75):]
 
 # tenroflow提供的数据集
 # (x, y), (x_valid, y_valid) = datasets.mnist.load_data()
 
-print('x:', x.shape, 'y:', y.shape, 'x valid:', x_valid.shape, 'y valid:', y_valid)
+# print('x:', x.shape, 'y:', y.shape, 'x valid:', x_valid.shape, 'y valid:', y_valid)
 
 
 # 数据预处理
@@ -101,41 +108,72 @@ def preprocess(x, y):  # 自定义的预处理函数
     return x, y
 
 
-batchsz = 64
-train_db = tf.data.Dataset.from_tensor_slices((x, y))
-train_db = train_db.shuffle(1000)  # 打乱顺序，缓冲池1000
+batchsz = 128
+train_db = tf.data.Dataset.from_tensor_slices((x_train, y_train))
+train_db = train_db.shuffle(1000)  # 打乱顺序，缓冲池1000.
 train_db = train_db.batch(batchsz)  # 批训练，批规模
 train_db = train_db.map(preprocess)
 train_db = train_db.repeat(20)
 
 #
 valid_db = tf.data.Dataset.from_tensor_slices((x_valid, y_valid))
-valid_db = valid_db.shuffle(1000).batch(batchsz).map(preprocess)
+valid_db = valid_db.shuffle(1000)
+valid_db = valid_db.batch(batchsz).map(preprocess)
 x, y = next(iter(train_db))
 print('train sample:', x.shape, y.shape)
-
 
 # def MAPE(true, pred):
 #     diff = np.abs(np.array(true) - np.array(pred))
 #     return np.mean(diff / true)
 
-def main():
-    # learning rate
-    lr = 1e-2
-    accs, losses = [], []
 
-    # 784 => 512
-    w1, b1 = tf.Variable(tf.random.normal([30, 28], stddev=0.1, seed=1)), tf.Variable(
-        tf.zeros([28]))  # stddev: 正态分布的标准差，默认为1.0
-    # 512 => 256
-    w2, b2 = tf.Variable(tf.random.normal([28, 12], stddev=0.1, seed=1)), tf.Variable(tf.zeros([12]))
-    # 256 => 10
-    w3, b3 = tf.Variable(tf.random.normal([12, 6], stddev=0.1, seed=1)), tf.Variable(tf.zeros([6]))
+# learning rate
+lr = 1e-1
+accs, losses = [], []
 
-    for step, (x, y) in enumerate(train_db):
+w1, b1 = tf.Variable(tf.random.normal([30, 20], stddev=0.1, seed=1)), tf.Variable(
+    tf.zeros([20]))  # stddev: 正态分布的标准差，默认为1.0
+w2, b2 = tf.Variable(tf.random.normal([20, 10], stddev=0.1, seed=1)), tf.Variable(tf.zeros([10]))
+w3, b3 = tf.Variable(tf.random.normal([10, 6], stddev=0.1, seed=1)), tf.Variable(tf.zeros([6]))
 
-        with tf.GradientTape() as tape:
+for step, (x, y) in enumerate(train_db):
+    if len(losses) >= 50:
+        break
 
+    with tf.GradientTape() as tape:
+
+        # layer1.
+        h1 = x @ w1 + b1
+        h1 = tf.nn.relu(h1)
+        # layer2
+        h2 = h1 @ w2 + b2
+        h2 = tf.nn.relu(h2)
+        # output
+        out = h2 @ w3 + b3
+        # out = tf.nn.relu(out)
+
+        # 求误差
+        loss = tf.square(y - out)
+        # 求误差的请平均值
+        loss = tf.reduce_mean(loss)
+
+    # 借助于 tensorflow 自动求导
+    grads = tape.gradient(loss, [w1, b1, w2, b2, w3, b3])
+
+    # 根据梯度更新参数
+    for p, g in zip([w1, b1, w2, b2, w3, b3], grads):
+        p.assign_sub(lr * g)
+
+    # 每迭代80次输出一次loss
+    if step % 80 == 0:
+        print(step, 'loss:', float(loss))
+        losses.append(float(loss))
+
+        # if step % 80 == 0:
+        #     # evaluate/valid
+        total, total_correct = 0., 0
+
+        for step, (x, y) in enumerate(valid_db):
             # layer1.
             h1 = x @ w1 + b1
             h1 = tf.nn.relu(h1)
@@ -144,64 +182,58 @@ def main():
             h2 = tf.nn.relu(h2)
             # output
             out = h2 @ w3 + b3
-            # out = tf.nn.relu(out)
 
-            # 求误差
-            loss = tf.square(y - out)
-            # 求误差的请平均值
-            loss = tf.reduce_mean(loss)
+            correct = MAE(y, out)
+            correct = tf.reduce_sum(correct)
+            total_correct += int(correct)
+            total += x.shape[0]
 
-        # 借助于 tensorflow 自动求导
-        grads = tape.gradient(loss, [w1, b1, w2, b2, w3, b3])
+        print(step, 'Evaluate Acc:', total_correct / total)
 
-        # 根据梯度更新参数
-        for p, g in zip([w1, b1, w2, b2, w3, b3], grads):
-            p.assign_sub(lr * g)
+        accs.append(total_correct / total)
 
-        # 每迭代80次输出一次loss
-        if step % 80 == 0:
-            print(step, 'loss:', float(loss))
-            losses.append(float(loss))
+plt.figure()
+x = [i * 80 for i in range(len(losses))]
 
-        if step % 80 == 0:
-            # evaluate/valid
-            total, total_correct = 0., 0
+min_indx = np.argmin(losses)
+plt.plot(x, losses, color='C0', marker='s', label='训练')
+plt.ylabel('线性回归 Loss')
+plt.xlabel('Step')
+plt.plot(min_indx, losses[min_indx], 'gs')
+plt.legend()
+# plt.savefig('train.svg')
 
-            for step, (x, y) in enumerate(valid_db):
-                # layer1.
-                h1 = x @ w1 + b1
-                h1 = tf.nn.relu(h1)
-                # layer2
-                h2 = h1 @ w2 + b2
-                h2 = tf.nn.relu(h2)
-                # output
-                out = h2 @ w3 + b3
+plt.figure()
+x0 = accs.index(min(accs)) * 80
+y0 = min(accs)
+# 标记折线最低点，xy是标记点位置，txtest是文本标注位置，文本偏移x-300，y+0.1以避免遮盖折现
+plt.annotate('最低点: %s' % round(y0, 3), xy=(x0, y0), xytext=(x0 - 300, y0 + 0.1),
+             arrowprops=dict(facecolor='black', shrink=0.00001))
+plt.plot(x, accs, color='C1', marker='s', label='测试')
+plt.ylabel('线性回归 valid mae')
+plt.xlabel('Step')
+plt.legend()
+plt.show()
+# plt.savefig('valid.svg')
+x_test = x_test.reshape(-1, 30)
+# 使用r方验证准确性
+h1 = x_test @ w1 + b1
+h1 = tf.nn.relu(h1)
+# layer2
+h2 = h1 @ w2 + b2
+h2 = tf.nn.relu(h2)
+# output
+out = h2 @ w3 + b3
 
-                correct = MAE(y, out)
-                correct = tf.reduce_sum(correct)
-                total_correct += int(correct)
-                total += x.shape[0]
+yhat_test = out
+r2_test = r2_score(y_test, yhat_test)  # 这里调用内置函数计算
 
-            print(step, 'Evaluate Acc:', total_correct / total)
+# 保留三位小数
+print('r2_score : ', round(r2_test, 3))
+print('use time: ', round(time.time() - starttime, 3), 's')
 
-            accs.append(total_correct / total)
-
-    plt.figure()
-    x = [i * 80 for i in range(len(losses))]
-    plt.plot(x, losses, color='C0', marker='s', label='训练')
-    plt.ylabel('Loss')
-    plt.xlabel('Step')
-    plt.legend()
-    # plt.savefig('train.svg')
-
-    plt.figure()
-    plt.plot(x, accs, color='C1', marker='s', label='测试')
-    plt.ylabel('误差率')
-    plt.xlabel('Step')
-    plt.legend()
-    plt.show()
-    # plt.savefig('valid.svg')
-
-
-if __name__ == '__main__':
-    main()
+"""
+结果为：
+r2_score :  0.722
+use time:  19.945 s
+"""
