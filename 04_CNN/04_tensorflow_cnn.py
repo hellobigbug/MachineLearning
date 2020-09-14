@@ -142,11 +142,11 @@ print('r2_score : ', round(r2_test, 3))
 print('use time: ', round(time.time() - starttime, 3), 's')
 
 """
-训练200次
+训练100次
 epochs=100 ：
-r2_score :  0.668
-use time:  109.192 s
-训练50次
+    r2_score :  0.697
+    use time:  63.0 s
+训练30次
 epochs=30 ：
     r2_score :  0.693
     use time:  10.88 s
