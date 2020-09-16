@@ -237,3 +237,32 @@ print('use time: ', round(time.time() - starttime, 3), 's')
 r2_score :  0.722
 use time:  19.945 s
 """
+figure = plt.figure(figsize=(15, 6))
+x = [i for i in range(len(yhat_test[:100]))]
+
+ax1 = figure.add_subplot(2, 3, 1)
+ax2 = figure.add_subplot(2, 3, 2)
+ax3 = figure.add_subplot(2, 3, 3)
+ax4 = figure.add_subplot(2, 3, 4)
+ax5 = figure.add_subplot(2, 3, 5)
+ax0 = figure.add_subplot(2, 3, 6)
+
+ax0.plot(x, yhat_test[:100, 0])
+ax0.plot(x, y_test[:100, 0])
+
+ax1.plot(x, yhat_test[:100, 1])
+ax1.plot(x, y_test[:100, 1])
+
+ax2.plot(x, yhat_test[:100, 2])
+ax2.plot(x, y_test[:100, 2])
+
+ax3.plot(x, yhat_test[:100, 3])
+ax3.plot(x, y_test[:100, 3])
+
+ax4.plot(x, yhat_test[:100, 4])
+ax4.plot(x, y_test[:100, 4])
+
+ax5.plot(x, yhat_test[:100, 5])
+ax5.plot(x, y_test[:100, 5])
+
+plt.show()

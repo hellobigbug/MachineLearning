@@ -58,7 +58,7 @@ model.add(Dense(6))  # dense是全连接层，只需要指定输出层维度。�
 model.compile(optimizer=optimizer, loss='mse', metrics=['mae'])  # 使用mse调整loss，使用mae验证准确率
 
 # 拟合模型，epochs为训练次数， batch_size为单次训练训练数据大小， verbose=2代表控制台输出全部训练记录
-history = model.fit(x_train, y_train, validation_data=(x_valid, y_valid), epochs=30, batch_size=128, verbose=2)
+history = model.fit(x_train, y_train, validation_data=(x_valid, y_valid), epochs=100, batch_size=128, verbose=2)
 
 # 标记fit时间
 usetime = time.time() - starttime
@@ -128,3 +128,34 @@ epochs=30 ：
     r2_score :  0.728
     use time:  88.959 s
 """
+
+# 特征预测结果展示
+figure = plt.figure(figsize=(15, 6))
+x = [i for i in range(len(yhat_test[:100]))]
+
+ax1 = figure.add_subplot(2, 3, 1)
+ax2 = figure.add_subplot(2, 3, 2)
+ax3 = figure.add_subplot(2, 3, 3)
+ax4 = figure.add_subplot(2, 3, 4)
+ax5 = figure.add_subplot(2, 3, 5)
+ax6 = figure.add_subplot(2, 3, 6)
+
+ax6.plot(x, yhat_test[:100, 0])
+ax6.plot(x, y_test[:100, 0])
+
+ax1.plot(x, yhat_test[:100, 1])
+ax1.plot(x, y_test[:100, 1])
+
+ax2.plot(x, yhat_test[:100, 2])
+ax2.plot(x, y_test[:100, 2])
+
+ax3.plot(x, yhat_test[:100, 3])
+ax3.plot(x, y_test[:100, 3])
+
+ax4.plot(x, yhat_test[:100, 4])
+ax4.plot(x, y_test[:100, 4])
+
+ax5.plot(x, yhat_test[:100, 5])
+ax5.plot(x, y_test[:100, 5])
+
+plt.show()
