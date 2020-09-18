@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from matplotlib import pyplot as plt
+from prophet import Prophet
 from sklearn.metrics import r2_score
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from tensorflow.python.keras import Sequential
@@ -63,20 +64,21 @@ y_valid = y_array[len_train + length:]
 lr = 1e-2
 optimizer = tf.keras.optimizers.SGD(lr)
 
-# 搭建lstm模型
-model = Sequential()
-model.add(Conv1D(filters=128, kernel_size=2, activation='relu', input_shape=(5, 6)))  # 卷积层1
-model.add(Conv1D(filters=64, kernel_size=2, activation='relu'))  # 卷积层2
-model.add(MaxPooling1D(pool_size=2))  # 池化层
-# model.add(Dropout(0.2))
-model.add(Flatten())  # 降维
-model.add(Dense(50, activation='relu'))  # 全连接层
-# model.add(Dropout(0.2))
-model.add(Dense(6))  # 全连接输出
-model.compile(optimizer=optimizer, loss='mse', metrics=['mae'])  # 使用mse调整loss，使用mae验证准确率
 
-history = model.fit(x_train, y_train, epochs=500, validation_data=(x_valid, y_valid), batch_size=1, verbose=2,
-                    use_multiprocessing=True)
+transdateDataFrame = df['y']
+ph = Prophet(daily_seasonality=True)
+
+# 模型拟合
+period = 30
+history = ph.fit(transdateDataFrame)
+future = ph.make_future_dataframe(periods=int(period), include_history=False)
+# 预测的结果
+forecast = ph.predict(future)[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(int(period))
+ph.plot()
+
+
+# history = model.fit(x_train, y_train, epochs=500, validation_data=(x_valid, y_valid), batch_size=1, verbose=2,
+#                     use_multiprocessing=True)
 data = history.history
 losses = data['loss']
 mae = data['val_mae']

@@ -163,6 +163,6 @@ print('r2_score : ', round(r2_test, 3))
 print('use time: ', round(time.time() - starttime, 3), 's')
 
 """
-r2_score :  -3.596
-use time:  83.968 s
+r2_score :  -1.738
+use time:  410.588 s
 """

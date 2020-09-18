@@ -9,17 +9,18 @@ import time
 import matplotlib
 import numpy as np
 import pandas as pd
-import tensorflow as tf
 from matplotlib import pyplot as plt
+from sklearn import preprocessing
 from sklearn.metrics import r2_score
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from tensorflow.python.keras import Sequential
-from tensorflow.python.keras.layers import Dense, LSTM, Conv1D, MaxPooling1D, Flatten
+from tensorflow.python.keras.layers import Dense, LSTM, Dropout
+import tensorflow as tf
 
 starttime = time.time()
 df = pd.read_csv("../data.csv", header=0)
 df = df.set_index('date')
-df = df['2017/6/1':'2018/6/1']
+df = df['2017/7/1':'2018/7/1']
 df = df.replace(0, np.nan)
 df = df.fillna(df.mean(axis=0))
 print(len(df))
@@ -47,37 +48,41 @@ y_array = np.array(y_list)
 # 预测时间长度
 length = 30
 
-len_train = int(len(x_array) * 0.6)
-
-x_test = x_array[len_train:len_train + length]
-y_test = y_array[len_train:len_train + length]
-
-# 划分训练集，验证集，测试集
-x_train = x_array[:len_train]
-y_train = y_array[:len_train]
-
-x_valid = x_array[len_train + length:]
-y_valid = y_array[len_train + length:]
+x_test = x_array[-length:]
+y_test = y_array[-length:]
 
 
-lr = 1e-2
-optimizer = tf.keras.optimizers.SGD(lr)
+len_train = int(len(x_array[:-length]))
 
-# 搭建lstm模型
+# 划分训练集，验证集，测试集，比例为8：2：2
+x_train = x_array[:int(len_train * 0.6)]
+x_valid = x_array[int(len_train * 0.6):]
+
+y_train = y_array[:int(len_train * 0.6)]
+y_valid = y_array[int(len_train * 0.6):]
+
 model = Sequential()
-model.add(Conv1D(filters=128, kernel_size=2, activation='relu', input_shape=(5, 6)))  # 卷积层1
-model.add(Conv1D(filters=64, kernel_size=2, activation='relu'))  # 卷积层2
-model.add(MaxPooling1D(pool_size=2))  # 池化层
+model.add(LSTM(128, input_shape=(x_train.shape[1], x_train.shape[2]),
+               return_sequences=True))  # x_train.shape[1], x_train.shape[2]也就是特征维度的5，6
 # model.add(Dropout(0.2))
-model.add(Flatten())  # 降维
-model.add(Dense(50, activation='relu'))  # 全连接层
+model.add(LSTM(128, return_sequences=True))
 # model.add(Dropout(0.2))
-model.add(Dense(6))  # 全连接输出
-model.compile(optimizer=optimizer, loss='mse', metrics=['mae'])  # 使用mse调整loss，使用mae验证准确率
+model.add(LSTM(64, return_sequences=False))
+model.add(Dense(6))  # dense是全连接层，只需要指定输出层维度。这里是最后一层，所以直接输出标签维度6
+lr = 1e-1
+optimizer = tf.keras.optimizers.SGD(lr)
+model.compile(optimizer='adam', loss='mse', metrics=['mae'])  # 使用mse调整loss，使用mae验证准确率
 
-history = model.fit(x_train, y_train, epochs=500, validation_data=(x_valid, y_valid), batch_size=1, verbose=2,
+
+# 拟合模型，epochs为训练次数， batch_size为单次训练训练数据大小， verbose=2代表控制台输出全部训练记录
+# model.compile(optimizer='RMSprop',
+#               loss='mse',
+#               metrics=['mae'])
+
+history = model.fit(x_train, y_train, epochs=500, validation_data=(x_valid, y_valid), batch_size=32, verbose=2,
                     use_multiprocessing=True)
 data = history.history
+
 losses = data['loss']
 mae = data['val_mae']
 
@@ -91,7 +96,7 @@ matplotlib.rcParams['axes.unicode_minus'] = False
 plt.figure()
 x = [i * 80 for i in range(len(losses))]
 plt.plot(x, losses, color='C0', marker='s', label='训练')
-plt.ylabel('LSTM loss')
+plt.ylabel('RNN loss')
 plt.xlabel('Step')
 plt.legend()
 
@@ -102,12 +107,13 @@ y0 = min(mae)
 plt.annotate('最低点: %s' % round(y0, 3), xy=(x0, y0), xytext=(x0 - 500, y0 + 0.1),
              arrowprops=dict(facecolor='black', shrink=0.00001))
 plt.plot(x, mae, color='C1', marker='s', label='测试')
-plt.ylabel('LSTM valid mae')
+plt.ylabel('RNN valid mae')
 plt.xlabel('Step')
 plt.legend()
+# plt.show()
 
 # 滚动预测
-x_history = x_train.reshape(-1, 6)
+x_history = x_valid.reshape(-1, 6)
 y_hat_lis = []
 for i in range(length):
     x = x_history[-5:, ].reshape(1, 5, 6)
@@ -117,12 +123,14 @@ for i in range(length):
 
 y_hat = np.array(y_hat_lis).reshape(-1, 6)
 
+
 # 反标准化和反归一化
 y_hat = ss.inverse_transform(y_hat)
 y_hat = mm.inverse_transform(y_hat)
 
 y_test = ss.inverse_transform(y_test)
 y_test = mm.inverse_transform(y_test)
+
 
 figure = plt.figure(figsize=(15, 6))
 x = [i for i in range(len(y_hat[:length]))]
@@ -163,6 +171,6 @@ print('r2_score : ', round(r2_test, 3))
 print('use time: ', round(time.time() - starttime, 3), 's')
 
 """
-r2_score :  -3.596
-use time:  83.968 s
+r2_score :  -0.414
+use time:  36.599 s
 """

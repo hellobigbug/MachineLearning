@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from matplotlib import pyplot as plt
+from prophet import Prophet
 from sklearn.metrics import r2_score
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from tensorflow.python.keras import Sequential
@@ -63,20 +64,21 @@ y_valid = y_array[len_train + length:]
 lr = 1e-2
 optimizer = tf.keras.optimizers.SGD(lr)
 
-# 搭建lstm模型
-model = Sequential()
-model.add(Conv1D(filters=128, kernel_size=2, activation='relu', input_shape=(5, 6)))  # 卷积层1
-model.add(Conv1D(filters=64, kernel_size=2, activation='relu'))  # 卷积层2
-model.add(MaxPooling1D(pool_size=2))  # 池化层
-# model.add(Dropout(0.2))
-model.add(Flatten())  # 降维
-model.add(Dense(50, activation='relu'))  # 全连接层
-# model.add(Dropout(0.2))
-model.add(Dense(6))  # 全连接输出
-model.compile(optimizer=optimizer, loss='mse', metrics=['mae'])  # 使用mse调整loss，使用mae验证准确率
+from sklearn.model_selection import GridSearchCV
+from sklearn.ensemble import RandomForestRegressor
 
-history = model.fit(x_train, y_train, epochs=500, validation_data=(x_valid, y_valid), batch_size=1, verbose=2,
-                    use_multiprocessing=True)
+rfgs_parameters = {
+    'n_estimators': [n for n in range(30, 50)],
+    'max_depth': [n for n in range(2, 6)],
+    'max_features': [n for n in range(2, 6)],
+    "min_samples_split": [n for n in range(2, 4)],
+    "min_samples_leaf": [n for n in range(2, 4)],
+    "bootstrap": [True, False]
+}
+
+model = GridSearchCV(RandomForestRegressor(), rfgs_parameters, cv=8, scoring='neg_mean_squared_log_error')
+
+history = model.fit(x_array, y_array)
 data = history.history
 losses = data['loss']
 mae = data['val_mae']

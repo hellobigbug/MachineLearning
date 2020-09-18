@@ -32,19 +32,14 @@ import pandas as pd
 starttime = time.time()
 
 # 读取数据
-df = pd.read_csv("../ATMP数据.csv", header=0)
-df = df.set_index('数据日期')
-
-# 数据量不足，用复制来增加
-# df = pd.concat([df,df,df,df,df,df,df,df,df,df,df,df])
-# df = pd.concat([df,df,df,df,df,df,df,df,df,df,df,df])[:60000]
+df = pd.read_csv("../data.csv", header=0)
+df = df.set_index('date')
 
 print(len(df))
 
 # 查看数据状态曲线
 # df[:].plot()
 # plt.show()
-
 
 np_data = np.array(df)
 min_max_scaler = preprocessing.MinMaxScaler()
@@ -69,6 +64,21 @@ for i in range(len(np_data)):
 x_array = np.array(x_list)
 y_array = np.array(y_list)
 
+# 预测时间长度
+length = 30
+
+x_test = x_array[-length:]
+y_test = y_array[-length:]
+len_train = int(len(x_array[:-length]))
+
+# 划分训练集，验证集，测试集，比例为8：2：2
+x_train = x_array[:int(len_train * 0.6)]
+x_valid = x_array[int(len_train * 0.6):]
+
+y_train = y_array[:int(len_train * 0.6)]
+y_valid = y_array[int(len_train * 0.6):]
+
+
 # # 保存
 # np.savez('data.npz', x_array=x_array, y_array=y_array)
 # # 读取
@@ -76,24 +86,6 @@ y_array = np.array(y_list)
 #
 # x_array = loaddata['x_array']
 # y_array = loaddata['y_array']
-
-# 可以直接训练的x和y
-# print(x_array)
-# print(y_array)
-
-# 划分训练集，验证集，测试集，比例为8：2：2
-x_train = x_array[:int(len(x_array) * 0.6)]
-x_valid = x_array[int(len(x_array) * 0.6):int(len(x_array) * 0.8)]
-x_test = x_array[int(len(x_array) * 0.8):]
-y_train = y_array[:int(len(y_array) * 0.6)]
-y_valid = y_array[int(len(y_array) * 0.6):int(len(y_array) * 0.8)]
-y_test = y_array[int(len(y_array) * 0.8):]
-
-
-# tenroflow提供的数据集
-# (x, y), (x_valid, y_valid) = datasets.mnist.load_data()
-
-# print('x:', x.shape, 'y:', y.shape, 'x valid:', x_valid.shape, 'y valid:', y_valid)
 
 
 # 数据预处理
@@ -104,31 +96,23 @@ def preprocess(x, y):  # 自定义的预处理函数
     x = tf.reshape(x, [-1, 5 * 6])  # 打平
     y = tf.cast(y, dtype=tf.float32)
     y = tf.reshape(y, [-1, 6])
-    # y = tf.one_hot(y, depth=6)
     return x, y
 
 
-batchsz = 128
+batchsz = 32
 train_db = tf.data.Dataset.from_tensor_slices((x_train, y_train))
 train_db = train_db.shuffle(1000)  # 打乱顺序，缓冲池1000.
 train_db = train_db.batch(batchsz)  # 批训练，批规模
 train_db = train_db.map(preprocess)
 train_db = train_db.repeat(20)
 
-#
 valid_db = tf.data.Dataset.from_tensor_slices((x_valid, y_valid))
 valid_db = valid_db.shuffle(1000)
 valid_db = valid_db.batch(batchsz).map(preprocess)
 x, y = next(iter(train_db))
 print('train sample:', x.shape, y.shape)
 
-# def MAPE(true, pred):
-#     diff = np.abs(np.array(true) - np.array(pred))
-#     return np.mean(diff / true)
-
-
-# learning rate
-lr = 1e-1
+lr = 1e-3
 accs, losses = [], []
 
 w1, b1 = tf.Variable(tf.random.normal([30, 20], stddev=0.1, seed=1)), tf.Variable(
@@ -137,8 +121,8 @@ w2, b2 = tf.Variable(tf.random.normal([20, 10], stddev=0.1, seed=1)), tf.Variabl
 w3, b3 = tf.Variable(tf.random.normal([10, 6], stddev=0.1, seed=1)), tf.Variable(tf.zeros([6]))
 
 for step, (x, y) in enumerate(train_db):
-    if len(losses) >= 50:
-        break
+    # if len(losses) >= 500:
+    #     break
 
     with tf.GradientTape() as tape:
 

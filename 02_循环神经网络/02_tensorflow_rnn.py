@@ -11,20 +11,22 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from matplotlib import pyplot as plt
-from sklearn import preprocessing
 from sklearn.metrics import r2_score
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 starttime = time.time()
-df = pd.read_csv("../ATMP数据.csv", header=0)
-df = df.set_index('数据日期')
-
+df = pd.read_csv("../data.csv", header=0)
+df = df.set_index('date')
+df = df['2017/5/1':'2018/5/1']
 print(len(df))
 
 np_data = np.array(df)
-min_max_scaler = preprocessing.MinMaxScaler()
-np_data = min_max_scaler.fit_transform(np_data)
-np_data = StandardScaler().fit_transform(np_data)
+
+# 标准化和归一化
+mm = MinMaxScaler()
+np_data = mm.fit_transform(np_data)
+ss = StandardScaler()
+np_data = ss.fit_transform(np_data)
 
 x_list = []
 y_list = []
@@ -37,41 +39,22 @@ for i in range(len(np_data)):
     y_list.append(y)
 
 x_array = np.array(x_list)
-# x_array = normalize(x_array, axis=0, norm='max')
 y_array = np.array(y_list)
-# y_array = normalize(y_array, axis=0, norm='max')
 
-# 划分训练集，验证集，测试集，比例为8：2：2
-x_train = x_array[:int(len(x_array) * 0.6)]
-x_valid = x_array[int(len(x_array) * 0.6):int(len(x_array) * 0.8)]
-x_test = x_array[int(len(x_array) * 0.8):]
-y_train = y_array[:int(len(y_array) * 0.6)]
-y_valid = y_array[int(len(y_array) * 0.6):int(len(y_array) * 0.8)]
-y_test = y_array[int(len(y_array) * 0.8):]
+# 预测时间长度
+length = 30
 
+len_train = int(len(x_array) * 0.6)
 
-# 数据预处理
-def preprocess(x, y):  # 自定义的预处理函数
-    x = tf.cast(x, dtype=tf.float32)
-    x = tf.reshape(x, [-1, 5 * 6])  # 打平
-    y = tf.cast(y, dtype=tf.float32)
-    y = tf.reshape(y, [-1, 6])
-    return x, y
+x_test = x_array[len_train:len_train + length]
+y_test = y_array[len_train:len_train + length]
 
+# 划分训练集，验证集，测试集
+x_train = x_array[:len_train]
+y_train = y_array[:len_train]
 
-batchsz = 128
-train_db = tf.data.Dataset.from_tensor_slices((x_train, y_train))
-# train_db = train_db.shuffle(1000)  # 打乱顺序，缓冲池1000
-train_db = train_db.batch(batchsz, drop_remainder=True)  # 批训练，批规模
-train_db = train_db.map(preprocess)
-train_db = train_db.repeat(20)
-
-#
-valid_db = tf.data.Dataset.from_tensor_slices((x_valid, y_valid))
-# valid_db = valid_db.shuffle(1000)
-valid_db = valid_db.batch(batchsz, drop_remainder=True).map(preprocess)
-x, y = next(iter(train_db))
-print('train sample:', x.shape, y.shape)
+x_valid = x_array[len_train + length:]
+y_valid = y_array[len_train + length:]
 
 
 class GRUModel(tf.keras.Model):
@@ -102,7 +85,8 @@ model.compile(optimizer=optimizer,
               loss='mse',
               metrics=['mae'])
 
-history = model.fit(train_db, epochs=100, validation_data=valid_db, batch_size=128, verbose=2)
+history = model.fit(x_train, y_train, epochs=1000, validation_data=(x_valid, y_valid), batch_size=1, verbose=2,
+                    use_multiprocessing=True)
 data = history.history
 
 losses = data['loss']
@@ -135,8 +119,26 @@ plt.legend()
 plt.show()
 # plt.savefig('valid.svg')x
 
-yhat_test = model.predict(x_test)
-r2_test = r2_score(y_test, yhat_test)  # 这里调用内置函数计算
+# yhat = model.predict(x_test)
+# 滚动预测
+x_history = x_train.reshape(-1, 6)
+y_hat_lis = []
+for i in range(length):
+    x = x_history[-5:, ].reshape(1, 5, 6)
+    y_hat = model.predict(x)
+    x_history = np.concatenate((x_history, y_hat), axis=0)
+    y_hat_lis.append(y_hat)
+
+y_hat = np.array(y_hat_lis).reshape(-1, 6)
+
+# 反标准化和反归一化
+y_hat = ss.inverse_transform(y_hat)
+y_hat = mm.inverse_transform(y_hat)
+
+y_test = ss.inverse_transform(y_test)
+y_test = mm.inverse_transform(y_test)
+
+r2_test = r2_score(y_test, y_hat)  # 这里调用内置函数计算
 
 # 保留三位小数
 print('r2_score : ', round(r2_test, 3))
@@ -148,7 +150,7 @@ use time:  311.277 s
 """
 
 figure = plt.figure(figsize=(15, 6))
-x = [i for i in range(len(yhat_test[:100]))]
+x = [i for i in range(len(y_hat[:100]))]
 
 ax1 = figure.add_subplot(2, 3, 1)
 ax2 = figure.add_subplot(2, 3, 2)
@@ -157,22 +159,22 @@ ax4 = figure.add_subplot(2, 3, 4)
 ax5 = figure.add_subplot(2, 3, 5)
 ax0 = figure.add_subplot(2, 3, 6)
 
-ax0.plot(x, yhat_test[:100, 0])
+ax0.plot(x, y_hat[:100, 0])
 ax0.plot(x, y_test[:100, 0])
 
-ax1.plot(x, yhat_test[:100, 1])
+ax1.plot(x, y_hat[:100, 1])
 ax1.plot(x, y_test[:100, 1])
 
-ax2.plot(x, yhat_test[:100, 2])
+ax2.plot(x, y_hat[:100, 2])
 ax2.plot(x, y_test[:100, 2])
 
-ax3.plot(x, yhat_test[:100, 3])
+ax3.plot(x, y_hat[:100, 3])
 ax3.plot(x, y_test[:100, 3])
 
-ax4.plot(x, yhat_test[:100, 4])
+ax4.plot(x, y_hat[:100, 4])
 ax4.plot(x, y_test[:100, 4])
 
-ax5.plot(x, yhat_test[:100, 5])
+ax5.plot(x, y_hat[:100, 5])
 ax5.plot(x, y_test[:100, 5])
 
 plt.show()
