@@ -69,8 +69,6 @@ for i in range(len(np_data)):
 x_array = np.array(x_list)
 y_array = np.array(y_list)
 
-
-
 len_train = int(len(x_array) * 0.8)
 
 # 划分训练集，验证集，测试集
